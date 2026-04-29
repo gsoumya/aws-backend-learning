@@ -1,0 +1,151 @@
+openapi: 3.0.3
+info:
+  title: Product Service API
+  description: |
+    REST API for the Product Service built on AWS Lambda + API Gateway.
+
+    **Endpoints**
+    - `GET /products` — Returns all products
+    - `GET /products/{productId}` — Returns a single product by ID
+
+    > Replace the server URL below with your deployed API Gateway URL after running `cdk deploy`.
+  version: 1.0.0
+  contact:
+    name: Product Service
+
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    description: AWS API Gateway (replace with your deployed URL)
+    variables:
+      apiId:
+        default: YOUR_API_ID
+        description: API Gateway ID from cdk deploy output
+      region:
+        default: us-east-1
+        description: AWS region
+      stage:
+        default: prod
+        description: Deployment stage
+
+tags:
+  - name: Products
+    description: Operations related to products
+
+paths:
+  /products:
+    get:
+      tags:
+        - Products
+      summary: Get all products
+      description: Returns the full list of available products.
+      operationId: getProducts
+      responses:
+        "200":
+          description: A list of products
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+              example:
+                - id: "1"
+                  title: Short Sleeve Shirt
+                  description: A comfortable cotton shirt
+                  price: 24.99
+                - id: "2"
+                  title: Slim Fit Jeans
+                  description: Classic blue denim jeans
+                  price: 49.99
+                - id: "3"
+                  title: Running Sneakers
+                  description: Lightweight sports shoes
+                  price: 89.99
+                - id: "4"
+                  title: Leather Belt
+                  description: Genuine leather belt
+                  price: 19.99
+
+  /products/{productId}:
+    get:
+      tags:
+        - Products
+      summary: Get product by ID
+      description: Returns a single product matching the given `productId`.
+      operationId: getProductById
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          description: The unique identifier of the product
+          schema:
+            type: string
+            example: "1"
+      responses:
+        "200":
+          description: The requested product
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+              example:
+                id: "1"
+                title: Short Sleeve Shirt
+                description: A comfortable cotton shirt
+                price: 24.99
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Product with id 99 not found"
+
+components:
+  schemas:
+    Product:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - price
+      properties:
+        id:
+          type: string
+          description: Unique product identifier
+          example: "1"
+        title:
+          type: string
+          description: Product name
+          example: Short Sleeve Shirt
+        description:
+          type: string
+          description: Short description of the product
+          example: A comfortable cotton shirt
+        price:
+          type: number
+          format: float
+          description: Product price in USD
+          example: 24.99
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Product with id 99 not found"
