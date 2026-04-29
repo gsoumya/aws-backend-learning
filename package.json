@@ -12,6 +12,7 @@
     "seed": "ts-node scripts/seed.ts"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.161",
     "@types/jest": "^30",
     "@types/node": "^24.10.1",
     "aws-cdk": "2.1118.0",
