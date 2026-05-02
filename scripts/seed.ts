@@ -18,10 +18,10 @@ const productsTable = process.env.PRODUCTS_TABLE ?? "products";
 const stockTable = process.env.STOCK_TABLE ?? "stock";
 
 const stockByProductId: Record<string, number> = {
-  "1": 15,
-  "2": 9,
-  "3": 18,
-  "4": 24,
+  "19ba3d6a-f8ed-491b-a192-0a33b71b38c4": 15,
+  "2099f2f0-8d53-4d22-b393-a4504f8f67d0": 9,
+  "80d29cbb-42e4-4b4a-a4f8-e0f81a3f8f9b": 18,
+  "f6341d0f-e04f-4c13-9ae8-b12f80f79a7d": 24,
 };
 
 const seedProducts: SeedProduct[] = products.map((product) => ({
