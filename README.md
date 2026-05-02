@@ -20,9 +20,10 @@ The stack contains these backend components:
 
 1. API Gateway REST API named `Product Service`
 2. Lambda `getProductsList` for `GET /products`
-3. Lambda `getProductsById` for `GET /products/{productId}`
-4. DynamoDB table `products`
-5. DynamoDB table `stock`
+3. Lambda `createProduct` for `POST /products`
+4. Lambda `getProductsById` for `GET /products/{productId}`
+5. DynamoDB table `products`
+6. DynamoDB table `stock`
 
 The API response model is a join of both DynamoDB tables:
 
@@ -51,6 +52,7 @@ AwsBackendLearningStack.ProductServiceApiEndpointE57F6293 = https://<api-id>.exe
 ```
 
 That is the base API URL for this project.
+Store that URL for task 4.3 submission and PR description, because it is the URL used to execute the Lambda functions through API Gateway.
 
 ## API Endpoints
 
@@ -63,13 +65,24 @@ https://ayhfzo2pc9.execute-api.us-east-1.amazonaws.com/prod/
 Available endpoints:
 
 1. `GET /products`
-2. `GET /products/{productId}`
+2. `POST /products`
+3. `GET /products/{productId}`
 
 Example requests:
 
 ```text
 https://ayhfzo2pc9.execute-api.us-east-1.amazonaws.com/prod/products
 https://ayhfzo2pc9.execute-api.us-east-1.amazonaws.com/prod/products/19ba3d6a-f8ed-491b-a192-0a33b71b38c4
+```
+
+Example POST body:
+
+```json
+{
+  "title": "Hoodie",
+  "description": "Warm cotton hoodie",
+  "price": 65
+}
 ```
 
 ## Where To Find It In AWS Console

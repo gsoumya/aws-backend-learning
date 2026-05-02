@@ -46,23 +46,35 @@ export class AwsBackendLearningStack extends cdk.Stack {
       },
     });
 
+    // Product Service — createProduct Lambda
+    const createProduct = new lambda.Function(this, 'createProduct', {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      code: lambda.Code.fromAsset(path.join(__dirname, 'products-lamda')),
+      handler: 'createProduct.handler',
+      environment: {
+        PRODUCTS_TABLE: productsTable.tableName,
+      },
+    });
+
     productsTable.grantReadData(getProductsList);
     stockTable.grantReadData(getProductsList);
     productsTable.grantReadData(getProductsById);
     stockTable.grantReadData(getProductsById);
+    productsTable.grantWriteData(createProduct);
 
     // API Gateway REST API
     const api = new apigateway.RestApi(this, 'ProductServiceApi', {
       restApiName: 'Product Service',
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
-        allowMethods: ['GET'],
+        allowMethods: ['GET', 'POST'],
       },
     });
 
     // GET /products
     const products = api.root.addResource('products');
     products.addMethod('GET', new apigateway.LambdaIntegration(getProductsList));
+    products.addMethod('POST', new apigateway.LambdaIntegration(createProduct));
 
     // GET /products/{productId}
     const productById = products.addResource('{productId}');

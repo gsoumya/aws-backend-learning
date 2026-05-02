@@ -6,6 +6,7 @@ info:
 
     **Endpoints**
     - `GET /products` - Returns all products with stock count
+    - `POST /products` - Creates a new product record
     - `GET /products/{productId}` - Returns a single product with stock count
 
     > Replace the server URL below with your deployed API Gateway URL after running `cdk deploy`.
@@ -59,6 +60,47 @@ paths:
                   description: A comfortable cotton shirt
                   price: 25
                   count: 15
+    post:
+      tags:
+        - Products
+      summary: Create product
+      description: Creates a new product item in the products table.
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+            example:
+              title: Hoodie
+              description: Warm cotton hoodie
+              price: 65
+      responses:
+        "201":
+          description: The created product
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedProduct"
+              example:
+                id: "0e7f1b1d-1e88-4943-8d4b-466021271e57"
+                title: Hoodie
+                description: Warm cotton hoodie
+                price: 65
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "price must be a non-negative integer"
 
   /products/{productId}:
     get:
@@ -143,6 +185,51 @@ components:
           type: integer
           description: Product stock count
           example: 15
+
+    CreateProductRequest:
+      type: object
+      required:
+        - title
+        - price
+      properties:
+        title:
+          type: string
+          description: Product name
+          example: Hoodie
+        description:
+          type: string
+          description: Short description of the product
+          example: Warm cotton hoodie
+        price:
+          type: integer
+          description: Product price
+          example: 65
+
+    CreatedProduct:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - price
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Created product identifier
+          example: "0e7f1b1d-1e88-4943-8d4b-466021271e57"
+        title:
+          type: string
+          description: Product name
+          example: Hoodie
+        description:
+          type: string
+          description: Short description of the product
+          example: Warm cotton hoodie
+        price:
+          type: integer
+          description: Product price
+          example: 65
 
     ErrorResponse:
       type: object
