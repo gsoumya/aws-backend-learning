@@ -4,6 +4,7 @@ import {
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import "dotenv/config";
+import { products } from "../lib/products-lamda/products";
 
 type SeedProduct = {
   id: string;
@@ -16,59 +17,29 @@ type SeedProduct = {
 const productsTable = process.env.PRODUCTS_TABLE ?? "products";
 const stockTable = process.env.STOCK_TABLE ?? "stock";
 
-const seedProducts: SeedProduct[] = [
-  {
-    id: "1",
-    title: "Wireless Mouse",
-    description: "2.4GHz ergonomic wireless mouse",
-    price: 25,
-    count: 120,
-  },
-  {
-    id: "2",
-    title: "Mechanical Keyboard",
-    description: "Backlit keyboard with red switches",
-    price: 79,
-    count: 65,
-  },
-  {
-    id: "3",
-    title: "USB-C Hub",
-    description: "6-in-1 USB-C hub with HDMI and PD",
-    price: 45,
-    count: 85,
-  },
-  {
-    id: "4",
-    title: "27-inch Monitor",
-    description: "QHD IPS monitor, 75Hz refresh rate",
-    price: 239,
-    count: 32,
-  },
-  {
-    id: "5",
-    title: "Noise Cancelling Headphones",
-    description: "Over-ear Bluetooth ANC headphones",
-    price: 149,
-    count: 48,
-  },
-  {
-    id: "6",
-    title: "Webcam 1080p",
-    description: "Full HD USB webcam with dual microphones",
-    price: 59,
-    count: 74,
-  },
-];
+const stockByProductId: Record<string, number> = {
+  "1": 15,
+  "2": 9,
+  "3": 18,
+  "4": 24,
+};
+
+const seedProducts: SeedProduct[] = products.map((product) => ({
+  ...product,
+  count: stockByProductId[product.id] ?? 0,
+}));
 
 async function seed(): Promise<void> {
+  if (!process.env.AWS_REGION) {
+    throw new Error("AWS_REGION is required to run the seed script");
+  }
+
   const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
   });
   const docClient = DynamoDBDocumentClient.from(client);
 
-  let inserted = 0;
-  const skipped: string[] = [];
+  let seeded = 0;
 
   for (const product of seedProducts) {
     const id = product.id;
@@ -86,7 +57,6 @@ async function seed(): Promise<void> {
                   description: product.description,
                   price: product.price,
                 },
-                ConditionExpression: "attribute_not_exists(id)",
               },
             },
             {
@@ -96,28 +66,24 @@ async function seed(): Promise<void> {
                   product_id: id,
                   count: product.count,
                 },
-                ConditionExpression: "attribute_not_exists(product_id)",
               },
             },
           ],
         })
       );
 
-      inserted += 1;
-      console.log(`Inserted: ${product.title} (${id})`);
+      seeded += 1;
+      console.log(`Seeded: ${product.title} (${id})`);
     } catch (error) {
-      skipped.push(product.title);
-      console.error(`Failed to insert ${product.title}:`, error);
+      console.error(`Failed to seed ${product.title}:`, error);
+      throw error;
     }
   }
 
   console.log("\nSeed completed");
   console.log(`Products table: ${productsTable}`);
   console.log(`Stock table: ${stockTable}`);
-  console.log(`Inserted pairs: ${inserted}`);
-  if (skipped.length > 0) {
-    console.log(`Skipped: ${skipped.join(", ")}`);
-  }
+  console.log(`Seeded pairs: ${seeded}`);
 }
 
 seed().catch((error) => {
