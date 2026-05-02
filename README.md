@@ -85,6 +85,14 @@ Example POST body:
 }
 ```
 
+## Frontend Application
+
+CloudFront frontend URL:
+
+```text
+https://d360sx6lq5b25q.cloudfront.net/
+```
+
 ## Where To Find It In AWS Console
 
 This project uses an API Gateway URL, not a Lambda Function URL.
