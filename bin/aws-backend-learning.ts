@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib/core';
 import { AwsBackendLearningStack } from '../lib/aws-backend-learning-stack';
+import { ImportServiceStack } from '../lib/import-service-stack';
 
 const app = new cdk.App();
 new AwsBackendLearningStack(app, 'AwsBackendLearningStack', {
@@ -17,4 +18,8 @@ new AwsBackendLearningStack(app, 'AwsBackendLearningStack', {
   // env: { account: '123456789012', region: 'us-east-1' },
 
   /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
+});
+
+new ImportServiceStack(app, 'ImportServiceStack', {
+  env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
 });

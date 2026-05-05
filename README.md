@@ -162,3 +162,186 @@ The API reads from DynamoDB and returns a joined product model:
   "count": 15
 }
 ```
+
+## Task 5: Import Service (CSV File Upload & Parsing)
+
+The Import Service enables clients to upload CSV files via S3 signed URLs and automatically processes them via AWS Lambda.
+
+### Architecture Components
+
+1. **API Gateway REST API** named `Import Service`
+   - Endpoint: `GET /import`
+   - Returns: Pre-signed S3 URL for uploading CSV files
+
+2. **S3 Bucket** named `import-service-bucket-{ACCOUNT_ID}-{REGION}`
+   - Auto-created with CORS enabled for cross-origin file uploads
+   - Directory: `uploaded/` stores all imported CSV files
+   - Auto-deletes objects after 1 day (lifecycle rule)
+
+3. **Lambda: importProductsFile** (API-triggered)
+   - Purpose: Generate signed S3 upload URLs
+   - Runtime: Node.js 22.x
+   - Input: API Gateway query parameter `name` (filename)
+   - Output: JSON with pre-signed PUT URL (valid for 5 minutes)
+   - HTTP Response:
+     - `200 OK` with signed URL on success
+     - `400 Bad Request` if filename missing
+     - `500 Internal Server Error` if signing fails
+
+4. **Lambda: importFileParser** (S3-triggered)
+   - Purpose: Parse and process uploaded CSV files
+   - Runtime: Node.js 22.x
+   - Trigger: S3 `OBJECT_CREATED` event on `uploaded/` prefix
+   - Dependencies: [csv-parser](https://www.npmjs.com/package/csv-parser) v3.2.0 (via Lambda Layer)
+   - Behavior: Streams CSV file, parses records, logs to CloudWatch Logs
+
+5. **Lambda Layer: CsvParserLayer**
+   - Node.js dependencies for csv-parser package
+   - Attached to importFileParser Lambda for stream-based CSV parsing
+
+### Deployment
+
+Deploy the complete stack (existing products service + import service):
+
+```bash
+npm run build
+npx cdk bootstrap
+npx cdk deploy --all --require-approval=never
+```
+
+After deployment, CDK outputs include:
+
+```text
+ImportServiceStack.ImportServiceApiEndpoint = https://<api-id>.execute-api.us-east-1.amazonaws.com/prod/
+ImportServiceStack.S3BucketName = import-service-bucket-<account-id>-<region>
+```
+
+### API Usage: Generate Signed URL
+
+**Request:**
+
+```bash
+curl -X GET "https://<api-id>.execute-api.us-east-1.amazonaws.com/prod/import?name=products.csv"
+```
+
+**Response (HTTP 200):**
+
+```json
+{
+  "signedUrl": "https://import-service-bucket-044099381264-us-east-1.s3.us-east-1.amazonaws.com/uploaded/products.csv?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20260505T064639Z&X-Amz-Expires=300&..."
+}
+```
+
+**Query Parameters:**
+
+| Parameter | Required | Type   | Description                     |
+|-----------|----------|--------|----------------------------------|
+| `name`    | Yes      | string | Filename for upload (e.g., `products.csv`) |
+
+### Upload CSV File
+
+**Using the signed URL from previous request:**
+
+```bash
+curl -X PUT \
+  -H "Content-Type: text/csv" \
+  --upload-file products.csv \
+  "https://import-service-bucket-...amazonaws.com/uploaded/products.csv?X-Amz-Algorithm=..."
+```
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+```
+
+### CSV Format Specification
+
+The CSV file must include a header row and comma-separated values.
+
+**Example: products.csv**
+
+```csv
+title,description,price,count
+Jacket,Lightweight jacket,110,7
+Shoes,Trail running shoes,95,12
+T-Shirt,Cotton crew neck t-shirt,25,30
+Cap,Baseball cap,18,40
+```
+
+**Required Headers:**
+
+| Column      | Type   | Description          |
+|-------------|--------|----------------------|
+| `title`     | string | Product name         |
+| `description` | string | Product details      |
+| `price`     | number | Product price in USD |
+| `count`     | number | Stock quantity       |
+
+### End-to-End Workflow
+
+1. Client requests signed URL: `GET /import?name=products.csv`
+2. importProductsFile Lambda returns pre-signed PUT URL
+3. Client uploads CSV file to signed URL using PUT request
+4. S3 triggers importFileParser Lambda automatically
+5. importFileParser streams and parses CSV records
+6. Each record logged to CloudWatch Logs (JSON format)
+
+### Verify Processing
+
+**CloudWatch Logs:**
+
+1. Open AWS Console
+2. Go to **CloudWatch** > **Logs** > **Log groups**
+3. Find `/aws/lambda/importFileParser*` (exact name in stack output)
+4. Open the latest log stream
+5. View parsed records in JSON format:
+
+```json
+{"level":"info","message":"Parsed record:","record":{"title":"Jacket","description":"Lightweight jacket","price":"110","count":"7"}}
+{"level":"info","message":"Parsed record:","record":{"title":"Shoes","description":"Trail running shoes","price":"95","count":"12"}}
+```
+
+**AWS Console Steps:**
+
+1. Open AWS Console
+2. Go to **Lambda**
+3. Open the `importFileParser*` function
+4. Open the **Monitor** tab
+5. Click **View CloudWatch Logs**
+6. Select the latest log stream
+7. Search for `"Parsed record"` to verify CSV parsing
+
+### Local Testing
+
+Create a test CSV file locally:
+
+```bash
+# Create test file
+cat > products.csv << 'EOF'
+title,description,price,count
+Jacket,Lightweight jacket,110,7
+Shoes,Trail running shoes,95,12
+T-Shirt,Cotton crew neck t-shirt,25,30
+Cap,Baseball cap,18,40
+EOF
+
+# Deploy stack
+npm run build
+npx cdk deploy --all --require-approval=never
+
+# Get signed URL and upload
+API_URL="https://<api-id>.execute-api.us-east-1.amazonaws.com/prod"
+SIGNED_URL=$(curl -s "$API_URL/import?name=products.csv" | jq -r '.signedUrl')
+curl -X PUT -H "Content-Type: text/csv" --upload-file products.csv "$SIGNED_URL"
+
+# Check CloudWatch for parsing results (wait ~2-3 seconds for Lambda execution)
+# See "Verify Processing" section above
+```
+
+### Infrastructure Code Files
+
+- **Stack Definition:** [lib/import-service-stack.ts](lib/import-service-stack.ts)
+- **API Lambda:** [lib/import-service-lambda/importProductsFile.ts](lib/import-service-lambda/importProductsFile.ts)
+- **Parser Lambda:** [lib/import-service-lambda/importFileParser.ts](lib/import-service-lambda/importFileParser.ts)
+- **CSV Parser Layer:** [lib/import-service-lambda/csv-parser-layer/nodejs/package.json](lib/import-service-lambda/csv-parser-layer/nodejs/package.json)
