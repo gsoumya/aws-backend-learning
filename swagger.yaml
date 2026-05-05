@@ -2,11 +2,12 @@ openapi: 3.0.3
 info:
   title: Product Service API
   description: |
-    REST API for the Product Service built on AWS Lambda + API Gateway.
+    REST API for the Product Service built on AWS Lambda + API Gateway + DynamoDB.
 
     **Endpoints**
-    - `GET /products` — Returns all products
-    - `GET /products/{productId}` — Returns a single product by ID
+    - `GET /products` - Returns all products with stock count
+    - `POST /products` - Creates a new product record
+    - `GET /products/{productId}` - Returns a single product with stock count
 
     > Replace the server URL below with your deployed API Gateway URL after running `cdk deploy`.
   version: 1.0.0
@@ -37,11 +38,11 @@ paths:
       tags:
         - Products
       summary: Get all products
-      description: Returns the full list of available products.
+      description: Returns the full list of products with stock count joined from products and stock tables.
       operationId: getProducts
       responses:
         "200":
-          description: A list of products
+          description: A list of products with stock count
           headers:
             Access-Control-Allow-Origin:
               schema:
@@ -54,41 +55,72 @@ paths:
                 items:
                   $ref: "#/components/schemas/Product"
               example:
-                - id: "1"
+                - id: "19ba3d6a-f8ed-491b-a192-0a33b71b38c4"
                   title: Short Sleeve Shirt
                   description: A comfortable cotton shirt
-                  price: 24.99
-                - id: "2"
-                  title: Slim Fit Jeans
-                  description: Classic blue denim jeans
-                  price: 49.99
-                - id: "3"
-                  title: Running Sneakers
-                  description: Lightweight sports shoes
-                  price: 89.99
-                - id: "4"
-                  title: Leather Belt
-                  description: Genuine leather belt
-                  price: 19.99
+                  price: 25
+                  count: 15
+    post:
+      tags:
+        - Products
+      summary: Create product
+      description: Creates a new product item in the products table.
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+            example:
+              title: Hoodie
+              description: Warm cotton hoodie
+              price: 65
+      responses:
+        "201":
+          description: The created product
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedProduct"
+              example:
+                id: "0e7f1b1d-1e88-4943-8d4b-466021271e57"
+                title: Hoodie
+                description: Warm cotton hoodie
+                price: 65
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "price must be a non-negative integer"
 
   /products/{productId}:
     get:
       tags:
         - Products
       summary: Get product by ID
-      description: Returns a single product matching the given `productId`.
+      description: Returns a single product with stock count for the given `productId`.
       operationId: getProductById
       parameters:
         - name: productId
           in: path
           required: true
-          description: The unique identifier of the product
+          description: Product UUID
           schema:
             type: string
-            example: "1"
+            format: uuid
+            example: "19ba3d6a-f8ed-491b-a192-0a33b71b38c4"
       responses:
         "200":
-          description: The requested product
+          description: The requested product with stock count
           headers:
             Access-Control-Allow-Origin:
               schema:
@@ -99,10 +131,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/Product"
               example:
-                id: "1"
+                id: "19ba3d6a-f8ed-491b-a192-0a33b71b38c4"
                 title: Short Sleeve Shirt
                 description: A comfortable cotton shirt
-                price: 24.99
+                price: 25
+                count: 15
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "productId path parameter is required"
         "404":
           description: Product not found
           content:
@@ -110,7 +151,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
-                message: "Product with id 99 not found"
+                message: "Product with id 00000000-0000-0000-0000-000000000000 not found"
 
 components:
   schemas:
@@ -121,11 +162,13 @@ components:
         - title
         - description
         - price
+        - count
       properties:
         id:
           type: string
+          format: uuid
           description: Unique product identifier
-          example: "1"
+          example: "19ba3d6a-f8ed-491b-a192-0a33b71b38c4"
         title:
           type: string
           description: Product name
@@ -135,10 +178,58 @@ components:
           description: Short description of the product
           example: A comfortable cotton shirt
         price:
-          type: number
-          format: float
-          description: Product price in USD
-          example: 24.99
+          type: integer
+          description: Product price
+          example: 25
+        count:
+          type: integer
+          description: Product stock count
+          example: 15
+
+    CreateProductRequest:
+      type: object
+      required:
+        - title
+        - price
+      properties:
+        title:
+          type: string
+          description: Product name
+          example: Hoodie
+        description:
+          type: string
+          description: Short description of the product
+          example: Warm cotton hoodie
+        price:
+          type: integer
+          description: Product price
+          example: 65
+
+    CreatedProduct:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - price
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Created product identifier
+          example: "0e7f1b1d-1e88-4943-8d4b-466021271e57"
+        title:
+          type: string
+          description: Product name
+          example: Hoodie
+        description:
+          type: string
+          description: Short description of the product
+          example: Warm cotton hoodie
+        price:
+          type: integer
+          description: Product price
+          example: 65
 
     ErrorResponse:
       type: object
@@ -148,4 +239,4 @@ components:
         message:
           type: string
           description: Human-readable error message
-          example: "Product with id 99 not found"
+          example: "Product not found"
