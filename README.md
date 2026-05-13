@@ -193,7 +193,7 @@ The Import Service enables clients to upload CSV files via S3 signed URLs and au
    - Runtime: Node.js 22.x
    - Trigger: S3 `OBJECT_CREATED` event on `uploaded/` prefix
    - Dependencies: [csv-parser](https://www.npmjs.com/package/csv-parser) v3.2.0 (via Lambda Layer)
-   - Behavior: Streams CSV file, parses records, logs to CloudWatch Logs
+  - Behavior: Streams CSV file, parses records, logs to CloudWatch Logs, then moves file from `uploaded/` to `parsed/`
 
 5. **Lambda Layer: CsvParserLayer**
    - Node.js dependencies for csv-parser package
@@ -212,9 +212,25 @@ npx cdk deploy --all --require-approval=never
 After deployment, CDK outputs include:
 
 ```text
-ImportServiceStack.ImportServiceApiEndpoint = https://<api-id>.execute-api.us-east-1.amazonaws.com/prod/
-ImportServiceStack.S3BucketName = import-service-bucket-<account-id>-<region>
+ImportServiceStack.ImportServiceApiEndpoint08D58EAA = https://z7z7s1eel4.execute-api.us-east-1.amazonaws.com/prod/
+ImportServiceStack.ImportServiceApiUrl = https://z7z7s1eel4.execute-api.us-east-1.amazonaws.com/prod/import
+ImportServiceStack.ImportBucketName = import-service-bucket-044099381264-us-east-1
+AwsBackendLearningStack.ProductServiceApiEndpointE57F6293 = https://ayhfzo2pc9.execute-api.us-east-1.amazonaws.com/prod/
 ```
+
+Current deployed URLs:
+
+- Product service API: `https://ayhfzo2pc9.execute-api.us-east-1.amazonaws.com/prod/`
+- Import service API base: `https://z7z7s1eel4.execute-api.us-east-1.amazonaws.com/prod/`
+- Import service endpoint: `https://z7z7s1eel4.execute-api.us-east-1.amazonaws.com/prod/import`
+- Import bucket: `import-service-bucket-044099381264-us-east-1`
+
+### Frontend Integration
+
+Use the deployed import endpoint from `ImportServiceApiUrl` output in your frontend app, for example:
+
+- `REACT_APP_IMPORT_API_URL=https://<api-id>.execute-api.<region>.amazonaws.com/prod/import`
+- `VITE_IMPORT_API_URL=https://<api-id>.execute-api.<region>.amazonaws.com/prod/import`
 
 ### API Usage: Generate Signed URL
 
@@ -286,6 +302,11 @@ Cap,Baseball cap,18,40
 4. S3 triggers importFileParser Lambda automatically
 5. importFileParser streams and parses CSV records
 6. Each record logged to CloudWatch Logs (JSON format)
+7. After parsing ends, file is copied to `parsed/` and removed from `uploaded/`
+
+### Unit Tests
+
+The import URL Lambda is covered with Jest tests in [test/aws-backend-learning.test.ts](test/aws-backend-learning.test.ts) using `aws-sdk-client-mock` and a mocked presigner.
 
 ### Verify Processing
 

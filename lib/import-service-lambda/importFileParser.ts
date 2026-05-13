@@ -1,5 +1,10 @@
 import type { S3Event, S3Handler } from 'aws-lambda';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import csv from 'csv-parser';
 import { Readable } from 'stream';
 
@@ -21,6 +26,7 @@ export const handler: S3Handler = async (event: S3Event): Promise<void> => {
     event.Records.map(async (record) => {
       const bucketName = record.s3.bucket.name;
       const objectKey = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
+      const parsedKey = objectKey.replace(/^uploaded\//, 'parsed/');
 
       const response = await s3Client.send(
         new GetObjectCommand({
@@ -36,6 +42,23 @@ export const handler: S3Handler = async (event: S3Event): Promise<void> => {
       }
 
       await parseCsvStream(body);
+
+      await s3Client.send(
+        new CopyObjectCommand({
+          Bucket: bucketName,
+          CopySource: `${bucketName}/${encodeURIComponent(objectKey).replace(/%2F/g, '/')}`,
+          Key: parsedKey,
+        })
+      );
+
+      await s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: bucketName,
+          Key: objectKey,
+        })
+      );
+
+      console.log(`Moved file from ${objectKey} to ${parsedKey}`);
     })
   );
 };

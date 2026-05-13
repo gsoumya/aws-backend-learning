@@ -2,7 +2,6 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const bucketName = process.env.IMPORT_BUCKET_NAME;
 const s3Client = new S3Client({});
 
 const responseHeaders = {
@@ -14,6 +13,8 @@ const responseHeaders = {
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+  const bucketName = process.env.IMPORT_BUCKET_NAME;
+
   if (!bucketName) {
     return {
       statusCode: 500,
@@ -44,7 +45,7 @@ export const handler = async (
     return {
       statusCode: 200,
       headers: responseHeaders,
-      body: JSON.stringify(signedUrl),
+      body: JSON.stringify({ signedUrl }),
     };
   } catch (error) {
     console.error('Failed to generate signed URL', error);

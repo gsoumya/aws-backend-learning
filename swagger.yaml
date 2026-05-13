@@ -31,8 +31,56 @@ servers:
 tags:
   - name: Products
     description: Operations related to products
+  - name: Import
+    description: Operations related to CSV import
 
 paths:
+  /import:
+    get:
+      tags:
+        - Import
+      summary: Generate signed URL for CSV upload
+      description: Returns a pre-signed S3 URL for uploading a CSV file into the uploaded folder.
+      operationId: importProductsFile
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: CSV file name to upload
+          schema:
+            type: string
+            example: products.csv
+      responses:
+        "200":
+          description: Signed URL generated successfully
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+          content:
+            application/json:
+              schema:
+                type: string
+                description: Pre-signed URL string
+                example: https://import-service-bucket-123456789012-us-east-1.s3.us-east-1.amazonaws.com/uploaded/products.csv?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20260513T120000Z&X-Amz-Expires=300
+        "400":
+          description: Missing required query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Missing required query parameter name
+        "500":
+          description: Failed to generate signed URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Failed to generate signed URL
+
   /products:
     get:
       tags:
