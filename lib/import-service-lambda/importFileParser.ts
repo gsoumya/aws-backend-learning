@@ -5,23 +5,43 @@ import {
   GetObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import csv from 'csv-parser';
 import { Readable } from 'stream';
 
 const s3Client = new S3Client({});
+const sqsClient = new SQSClient({});
+const catalogItemsQueueUrl = process.env.CATALOG_ITEMS_QUEUE_URL;
 
-const parseCsvStream = (stream: Readable): Promise<void> =>
+const parseCsvStream = (stream: Readable, queueUrl: string): Promise<void> =>
   new Promise((resolve, reject) => {
+    const sendMessageTasks: Promise<unknown>[] = [];
+
     stream
       .pipe(csv())
       .on('data', (record) => {
-        console.log('Parsed record:', JSON.stringify(record));
+        sendMessageTasks.push(
+          sqsClient.send(
+            new SendMessageCommand({
+              QueueUrl: queueUrl,
+              MessageBody: JSON.stringify(record),
+            })
+          )
+        );
       })
-      .on('end', resolve)
+      .on('end', () => {
+        Promise.all(sendMessageTasks)
+          .then(() => resolve())
+          .catch(reject);
+      })
       .on('error', reject);
   });
 
 export const handler: S3Handler = async (event: S3Event): Promise<void> => {
+  if (!catalogItemsQueueUrl) {
+    throw new Error('Missing CATALOG_ITEMS_QUEUE_URL environment variable');
+  }
+
   await Promise.all(
     event.Records.map(async (record) => {
       const bucketName = record.s3.bucket.name;
@@ -41,7 +61,7 @@ export const handler: S3Handler = async (event: S3Event): Promise<void> => {
         throw new Error(`S3 object ${objectKey} did not return a readable stream`);
       }
 
-      await parseCsvStream(body);
+      await parseCsvStream(body, catalogItemsQueueUrl);
 
       await s3Client.send(
         new CopyObjectCommand({

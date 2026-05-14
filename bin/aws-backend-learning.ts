@@ -4,7 +4,13 @@ import { AwsBackendLearningStack } from '../lib/aws-backend-learning-stack';
 import { ImportServiceStack } from '../lib/import-service-stack';
 
 const app = new cdk.App();
-new AwsBackendLearningStack(app, 'AwsBackendLearningStack', {
+const stackEnv = {
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+  region: process.env.CDK_DEFAULT_REGION,
+};
+
+const productServiceStack = new AwsBackendLearningStack(app, 'AwsBackendLearningStack', {
+  env: stackEnv,
   /* If you don't specify 'env', this stack will be environment-agnostic.
    * Account/Region-dependent features and context lookups will not work,
    * but a single synthesized template can be deployed anywhere. */
@@ -21,5 +27,6 @@ new AwsBackendLearningStack(app, 'AwsBackendLearningStack', {
 });
 
 new ImportServiceStack(app, 'ImportServiceStack', {
-  env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+  env: stackEnv,
+  catalogItemsQueue: productServiceStack.catalogItemsQueue,
 });
