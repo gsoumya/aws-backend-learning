@@ -10,6 +10,7 @@ import * as path from 'path';
 
 export interface ImportServiceStackProps extends cdk.StackProps {
   catalogItemsQueue: sqs.IQueue;
+  basicAuthorizerArn: string;
 }
 
 export class ImportServiceStack extends cdk.Stack {
@@ -82,11 +83,43 @@ export class ImportServiceStack extends cdk.Stack {
       },
     });
 
+    const basicAuthorizerLambda = lambda.Function.fromFunctionArn(
+      this,
+      'basicAuthorizerFunction',
+      props.basicAuthorizerArn
+    );
+
+    const importAuthorizer = new apigateway.TokenAuthorizer(this, 'ImportTokenAuthorizer', {
+      handler: basicAuthorizerLambda,
+      identitySource: apigateway.IdentitySource.header('Authorization'),
+      resultsCacheTtl: cdk.Duration.seconds(0),
+    });
+
+    api.addGatewayResponse('UnauthorizedGatewayResponse', {
+      type: apigateway.ResponseType.UNAUTHORIZED,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'*'",
+      },
+      statusCode: '401',
+    });
+
+    api.addGatewayResponse('AccessDeniedGatewayResponse', {
+      type: apigateway.ResponseType.ACCESS_DENIED,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'*'",
+      },
+      statusCode: '403',
+    });
+
     const importResource = api.root.addResource('import');
     importResource.addMethod('GET', new apigateway.LambdaIntegration(importProductsFile), {
       requestParameters: {
         'method.request.querystring.name': true,
       },
+      authorizer: importAuthorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
     });
 
     new cdk.CfnOutput(this, 'ImportBucketName', {
