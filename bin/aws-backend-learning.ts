@@ -1,7 +1,9 @@
 #!/usr/bin/env node
+import 'dotenv/config';
 import * as cdk from 'aws-cdk-lib/core';
 import { AwsBackendLearningStack } from '../lib/aws-backend-learning-stack';
 import { ImportServiceStack } from '../lib/import-service-stack';
+import { AuthorizationServiceStack } from '../lib/authorization-service/authorization-service';
 
 const app = new cdk.App();
 const stackEnv = {
@@ -26,7 +28,16 @@ const productServiceStack = new AwsBackendLearningStack(app, 'AwsBackendLearning
   /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
 });
 
+const authorizationServiceStack = new AuthorizationServiceStack(
+  app,
+  'AuthorizationServiceStack',
+  {
+    env: stackEnv,
+  }
+);
+
 new ImportServiceStack(app, 'ImportServiceStack', {
   env: stackEnv,
   catalogItemsQueue: productServiceStack.catalogItemsQueue,
+  basicAuthorizerArn: authorizationServiceStack.basicAuthorizerLambda.functionArn,
 });
